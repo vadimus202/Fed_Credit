@@ -4,7 +4,7 @@
 
 # Get a clean Fed Credit Supplement Table
 ##################################################################################################
-get_clean_df <- function(fcs_fy, fcs_tbl, cache_dir='data'){
+get_clean_df <- function(fcs_fy, fcs_tbl, cache_dir='data/xls'){
     stopifnot(fcs_tbl %in% 1:6)
     
     raw <- get_raw_file(fcs_fy, fcs_tbl, cache_dir)
@@ -27,14 +27,20 @@ get_clean_df <- function(fcs_fy, fcs_tbl, cache_dir='data'){
     
     names(raw) <- col_names
     
+    raw <- clean_clean_txt(raw)
+    
     is_data <- !is.na(raw[,col_data_check] %>% .[[1]])
     
     # get headers and values
     heads <- get_heads(raw, is_data)
+    if(fcs_tbl %in% 1:2) heads <- bind_cols(heads, raw[,2])
+    heads <- filter(heads, is_data)
+    
+    # clean values    
     vals <- get_vals(raw, is_data, col_heads)
     
     # final data = headers + values
-    df <- bind_cols(filter(heads, is_data), vals)
+    df <- bind_cols(heads, vals)
     
     # remove programs
     df <- filter(
@@ -47,6 +53,78 @@ get_clean_df <- function(fcs_fy, fcs_tbl, cache_dir='data'){
     
     return(df)
 }
+
+# Clean Descriptions
+##################################################################################################
+clean_clean_txt <- function(raw){
+    
+    
+    raw$txt <- raw$txt %>% 
+        # remove dots (.....)
+        gsub('\\.{2,}','', .) %>% 
+        # remove trailing footnotes
+        gsub('[1-9 ,]+$','', .) %>% 
+        gsub('Department of( the)? ', '', ., ignore.case = T) %>% 
+        gsub('Agriculture','USDA',., ignore.case = T) %>% 
+        gsub('Agency for International Development:?','USAID',., ignore.case = T) %>% 
+        gsub('Health and Human Services','HHS',., ignore.case = T) %>% 
+        gsub('Homeland Security','DHS',., ignore.case = T) %>% 
+        gsub('Housing and Urban Development','HUD',., ignore.case = T) %>% 
+        gsub('Export-Import Bank of the United States','EXIM Bank',., ignore.case = T) %>% 
+        gsub('Overseas Private Investment Corporation:?','OPIC',., ignore.case = T) %>% 
+        gsub('Small Business Administration','SBA',., ignore.case = T) %>% 
+        gsub('Veterans Affairs','VA',., ignore.case = T) %>% 
+        gsub('   Business Loans:','Business Loans:',., ignore.case = T) %>% 
+        gsub('Transportation, Infrastructure','Transportation Infrastructure',., ignore.case = T) %>% 
+        gsub('Risk Category$','Risk Category 4 Guarantees',., ignore.case = T)
+    
+    
+    raw <- paste_split_lines(
+        raw,
+        line_1 = '504 Commercial Real Estate \\(CRE\\) Refinance',
+        line_2 = '^ *?Program')
+    
+    raw <- paste_split_lines(
+        raw,
+        line_1 = 'Section 504 Certified Development Companies',
+        line_2 = 'Debentures')
+    
+    raw <- paste_split_lines(
+        raw,
+        line_1 = 'Community Development Loan Guarantee',
+        line_2 = '\\(Section 108\\)')
+    
+    raw <- paste_split_lines(
+        raw,
+        line_1 = 'Minority Business Resource Center',
+        line_2 = 'Loan Guarantees')
+    
+    raw <- paste_split_lines(
+        raw,
+        line_1 = 'Transportation, Infrastructure, Finance \\& Innovation \\(TIFIA\\)',
+        line_2 = 'Direct Loans')
+
+    return(raw)    
+}
+
+# Function to combine split descr lines
+paste_split_lines <- function(raw, line_1, line_2){
+    
+    from <- grep(line_1, raw$txt,ignore.case = T)
+    to <- grep(paste0('^ *?',line_2), raw$txt,ignore.case = T)
+    
+    to <- intersect(to,from+1)
+    from <- to-1
+    
+    raw$txt[to] <- paste(
+        raw$txt[from],
+        raw$txt[to] %>% gsub('^ *','', .)
+    )
+    raw$txt[from] <- NA
+    
+    return(raw)
+}
+
 
 
 # Read in Excel file
@@ -81,30 +159,14 @@ get_heads <- function(raw, is_data){
     
     # clean headers descr
     txt <-  raw$txt %>% 
-        gsub('\\.{2,}','', .) %>% 
+        # remove leading spaces
         gsub('^ +','', .) %>% 
-        gsub(':$','', .) %>% 
-        gsub('[1-9 ,]+$','', .) %>% 
-        gsub('Department of( the)? ','', ., ignore.case = T) %>% 
-        gsub('Agriculture','USDA',., ignore.case = T) %>% 
-        gsub('Agency for International Development','USAID',., ignore.case = T) %>% 
-        gsub('Health and Human Services','HHS',., ignore.case = T) %>% 
-        gsub('Homeland Security','DHS',., ignore.case = T) %>% 
-        gsub('Housing and Urban Development','HUD',., ignore.case = T) %>% 
-        gsub('Export-Import Bank of the United States','EXIM Bank',., ignore.case = T) %>% 
-        gsub('Overseas Private Investment Corporation','OPIC',., ignore.case = T) %>% 
-        gsub('Small Business Administration','SBA',., ignore.case = T) %>% 
-        gsub('Veterans Affairs','VA',., ignore.case = T)
-    
+        # remove trailing ":"
+        gsub(':$','', .)
     
     
     is_blank <- apply(raw, 1, function(x) sum(is.na(x)))==ncol(raw)
     is_h1 <- !is_blank & !is_data & !grepl("^ ", raw$txt) & !grepl(":$", raw$txt)
-    is_h1 <- is_h1 | grepl(paste('Export-Import Bank',
-                                 'National Infrastructure Bank',
-                                 'Agency for International Development',
-                                 'Overseas Private Investment',
-                                 sep='|'), raw$txt)
     is_h2 <- !is_data & !is_h1 & !grepl("^ ", raw$txt)  
     is_h3 <- !is_data & !is_h1 & grepl("^ ", raw$txt)
     
@@ -181,4 +243,3 @@ get_vals <- function(raw, is_data, col_heads){
     
     return(df)
 }
-    
