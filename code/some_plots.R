@@ -1,3 +1,4 @@
+library(dplyr)
 
 
 budget_cache <- 'data/cache/budget_est.RData'
@@ -20,18 +21,34 @@ ggplot(data = cy, aes(net_def))+
 
 # Sankey
 library(googleVis)
-df_sankey <- cy %>% 
-    group_by(h1, moody) %>% 
-    summarise(amount = sum(amt,na.rm = T),
-              exposure = sum(sr_def*amt/100,na.rm = T) %>% 
-                  round(0))
+df_sankey <- bind_rows(
+    cy %>% 
+        group_by(from=purp, to=h1) %>% 
+        summarise(amount = sum(amt,na.rm = T),
+                  exposure = sum(sr_def*amt/100,na.rm = T) %>% 
+                      round(0)),
+    cy %>% 
+        group_by(from=h1, to=moody) %>% 
+        summarise(amount = sum(amt,na.rm = T),
+                  exposure = sum(sr_def*amt/100,na.rm = T) %>% 
+                      round(0)),
+    cy %>% 
+        group_by(from=moody, to=type) %>% 
+        summarise(amount = sum(amt,na.rm = T),
+                  exposure = sum(sr_def*amt/100,na.rm = T) %>% 
+                      round(0)) %>% 
+        mutate(to = ifelse(to=='DL','Direct Loans','Loan Guarantees'))
+)
 
-sk_exp <- gvisSankey(data = df_sankey %>% select(h1,moody,exposure), 
-                     from = 'h1', to = 'moody', weight = 'exposure',
+
+
+
+sk_exp <- gvisSankey(data = df_sankey %>% select(from,to,exposure), 
+                     from = 'from', to = 'to', weight = 'exposure',
                      options=list(width=700, height=500))
 
-sk_amt <- gvisSankey(data = df_sankey %>% select(h1,moody,amount), 
-                     from = 'h1', to = 'moody', weight = 'amount',
+sk_amt <- gvisSankey(data = df_sankey %>% select(from,to,amount), 
+                     from = 'from', to = 'to', weight = 'amount',
                      options=list(width=700, height=500))
 
 

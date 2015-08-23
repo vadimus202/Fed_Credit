@@ -82,6 +82,11 @@ get_formul_main <- function(fcs_fy){
         # Loan Gtys
         get_tbl_main2(fcs_fy = fcs_fy,fcs_tbl = 2)
     )
+    
+    # add purpose
+    df <- add_loan_pupose(df)
+    
+    return(df)
 }
 
 
@@ -117,11 +122,35 @@ get_formul_assum <- function(fcs_fy){
 }
 
 
+add_loan_pupose <- function(df){
+    library(data.table)
+    
+    dt <- data.table(df)
+    
+    dt[h1=='HUD', purp:='Housing']
+    dt[h1=='Education', purp:='Student Loans']
+    dt[h1=='USDA' & h2=='Rural Housing Service', purp:='Housing']
+    dt[h1=='USDA' & h2=='Farm Service Agency', purp:='Agriculture']
+    dt[h1=='USDA' & h2=='Rural Utilities Service', purp:='Energy, Transportation, Infrastructure']
+    dt[h1=='USDA' & h2=='Rural Business Cooperative Service', purp:='Business']
+    dt[grepl('SBA|Commerce|EXIM',h1), purp:='Business']
+    dt[h1=='VA' & (grepl('[Hh]ousing',prog) 
+                   | grepl('[Hh]ousing',h3)
+                   | grepl('[Hh]ousing',h2)),
+       purp:='Housing']
+    dt[grepl('Energy|Transportation', h1), 
+       purp:='Energy, Transportation, Infrastructure']
+    
+    dt[is.na(purp), purp:='Other']
+
+    df <- as_data_frame(dt)
+    
+    return(df)
+    
+}
+
 
 get_moodys_ratings <- function(budget_est){
-    
-    detach_DT <- loadedNamespaces() %>% grepl('data\\.table',.) %>% sum==0
-    
     library(data.table)
     
     moody_cache <- 'data/cache/moodys.RData'
@@ -151,8 +180,6 @@ get_moodys_ratings <- function(budget_est){
     
     
     budget_est <- as_data_frame(dt)
-    
-    if(detach_DT) detach("package:data.table")
     
     return(budget_est)
 }
