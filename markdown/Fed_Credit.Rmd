@@ -327,3 +327,5 @@ ggplot(data=tbl_subs_comp,
 * [Office of Mamnagement and Budget, Federal Credit Supplement, Budget of the United States Government, Fiscal Year 2016](https://www.whitehouse.gov/sites/default/files/omb/budget/fy2016/assets/cr_supp.pdf)
 * [Moody's, Corporate Default and Recovery Rates, 1920-2010, Table 34](http://efinance.org.cn/cn/FEben/Corporate%20Default%20and%20Recovery%20Rates,1920-2010.pdf)
 
+
+Download the R source code from [GitHub](https://github.com/vadimus202/Fed_Credit).
