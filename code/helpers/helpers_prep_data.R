@@ -3,12 +3,12 @@ get_budget_est <- function(fcs_fy){
     main <- get_formul_main(fcs_fy = fcs_fy)
     assum <- get_formul_assum(fcs_fy = fcs_fy)    
     
-#     prog_mismatch <- union(
-#         setdiff(main$prog, assum$prog)
-#         ,
-#         setdiff(assum$prog, main$prog) 
-#     ) %>% paste(., collapse ='\n')
-#     cat('Programs Mismatches:\n',prog_mismatch)
+    #     prog_mismatch <- union(
+    #         setdiff(main$prog, assum$prog)
+    #         ,
+    #         setdiff(assum$prog, main$prog) 
+    #     ) %>% paste(., collapse ='\n')
+    #     cat('Programs Mismatches:\n',prog_mismatch)
     
     no_assum <- anti_join(
         main,
@@ -48,7 +48,7 @@ get_budget_est <- function(fcs_fy){
 
 
 get_formul_main <- function(fcs_fy){
-
+    
     # FY split function
     get_tbl_main2 <- function(fcs_fy, fcs_tbl){
         
@@ -75,7 +75,7 @@ get_formul_main <- function(fcs_fy){
         return(df)
     }
     
-        
+    
     df <- bind_rows(
         # Direct Loans
         get_tbl_main2(fcs_fy = fcs_fy,fcs_tbl = 1),
@@ -111,13 +111,16 @@ get_formul_assum <- function(fcs_fy){
         )
     )
     
-    # default, net of recoveries rate
-    df <- mutate(
-        df,
-        net_def = def * (1-ifelse(is.na(recov),0,recov)/100),
-        net_def = round(net_def, 2)
-    )
-
+    df <- df %>% 
+        # default, net of recoveries rate
+        mutate(
+            net_def = def * (1-ifelse(is.na(recov),0,recov)/100),
+            net_def = round(net_def, 2)) %>% 
+        # remove NAs from Subsidy components
+        mutate_each_(funs = funs(na.rm = ifelse(is.na(.),0, .)), 
+                     vars = c('sr_def', 'sr_int', 'sr_fee', 'sr_oth')
+        )
+    
     return(df)
 }
 
@@ -142,7 +145,7 @@ add_loan_pupose <- function(df){
        purp:='Energy, Transportation, Infrastructure']
     
     dt[is.na(purp), purp:='Other']
-
+    
     df <- as_data_frame(dt)
     
     return(df)
