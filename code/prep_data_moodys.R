@@ -31,7 +31,8 @@ moody <- data_frame(
     bind_cols(rates) %>% 
     tidyr::gather(key = moody_yr, value = net_def, -moody, -moody_num) %>%
     mutate(moody_yr = as.numeric(moody_yr)) %>% 
-    arrange(moody_num,moody_yr)
+    arrange(moody_num,moody_yr) %>% 
+    mutate(moody = factor(moody, levels=unique(moody)))
 
 save(moody, file = 'data/cache/moodys.RData')
 
