@@ -1,5 +1,5 @@
 ---
-title: "The US Federal Credit Programs"
+title: "The US Federal Credit Overview"
 subtitle: "FY 2016 President's Budget Credit Supplement"
 author: "Vadim Bondarenko<BR>FI Consulting"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
