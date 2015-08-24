@@ -17,6 +17,32 @@ ggplot(data = cy, aes(net_def))+
     theme_bw()+
     geom_histogram(binwidth=10, color='black', fill='firebrick')
 
+ggplot(
+    data = budget_est %>% 
+        group_by(fy, moody_num, moody) %>% 
+        summarise(amt=sum(amt)) %>% 
+        ungroup() %>% 
+        arrange(moody_num) %>% 
+        mutate(moody=factor(moody, levels=unique(moody))), 
+       aes(moody, amt, fill=factor(fy)))+
+    theme_bw()+
+    geom_bar(stat = 'identity',position = 'dodge')
+
+ggplot(
+    data = budget_est %>% 
+        group_by(fy, purp) %>% 
+        summarise(amt=sum(amt)), 
+    aes(purp, amt, fill=factor(fy)))+
+    theme_bw()+
+    geom_bar(stat = 'identity',position = 'dodge')
+
+ggplot(
+    data = budget_est %>% 
+        group_by(fy, purp) %>% 
+        summarise(Subsidy=sum(sr/100*amt/1000,na.rm = T) %>% round(0)), 
+    aes(purp, Subsidy, fill=factor(fy)))+
+    theme_bw()+
+    geom_bar(stat = 'identity',position = 'dodge')
 
 
 # Sankey
@@ -53,6 +79,7 @@ sk_amt <- gvisSankey(data = df_sankey %>% select(from,to,amount),
 
 
 plot(sk_amt)
+plot(sk_cost)
 plot(sk_exp)
 
 
