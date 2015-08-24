@@ -1,0 +1,329 @@
+---
+title: "The US Federal Credit Programs"
+subtitle: "FY 2016 President's Budget Credit Supplement"
+author: "Vadim Bondarenko<BR>FI Consulting"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    theme: united
+    toc: yes
+---
+
+<style>
+h1{font-size:24px; margin-top:10px; margin-bottom:5px;}
+h2{font-size:18px;}
+h3{font-size:16px;}
+h4{font-size:14px;}
+th{font-size:12px;}
+td{font-size:11px;}
+.break { page-break-before: always; }
+.smaller_font p {font-size:10px;}
+</style>
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(DT)
+library(googleVis)
+library(scales)
+library(ggthemes)
+library(ggplot2)
+library(dplyr)
+
+opts_chunk$set(echo = FALSE, results='asis', size="small", fig.align = 'center', fig.width = 9)
+op <- options(gvis.plot.tag='chart')
+theme_set(theme_bw())
+
+load('../data/cache/budget_est.RData')
+load('../data/cache/moodys.RData')
+
+cy <- budget_est %>% filter(fy==2016)
+
+
+```
+
+# Introduction
+
+## What is Federal Credit
+The U.S. government uses federal credit (direct loans and loan guarantees) to allocate financial capital to a range of areas, including home ownership, higher education, small business, agriculture, and energy. The Federal Credit Reform Act of 1990 or FCRA, changed how the unified budget reports the cost of federal credit activities. 
+FCRA required that the reported budgetary cost of a credit program equal the estimated subsidy costs at the time the credit is provided. The FCRA defines the subsidy cost as “the estimated long-term cost to the government of a direct loan or a loan guarantee,
+calculated on a net present value basis, excluding administrative costs.” 
+
+## Federal Credit Supplement
+This analysis uses the data reported in the Federal Credit Supplement to the FY2016 President's Budget. It contains information about the federal government’s credit market activities—for example lending authority and estimated credit costs. It is a combination of policy targets proposed by the administration, supported by some quantitative assumptions.
+
+# Program Search (FY 2016) 
+```{r tbl_detl}
+
+tbl_detl <- cy %>% 
+    select(purp,type,h1,prog,sr,amt,mat,def,recov,net_def,moody) %>% 
+    mutate_each_(funs(factor), vars=c('type','purp','h1'))
+
+datatable(data = tbl_detl,
+          rownames = F,  
+          colnames = c('Category', 'Credit Type', 'Agency', 'Program', 
+                       'Subsidy Rate', 'Loan Amount', 'Loan Term (years)', 
+                       'Default Rate', 'Recovery Rate', 'Net Default Rate', 
+                       "Moody's Credit Rating"),
+          filter = list(position = 'top', clear = FALSE, plain = TRUE),
+          class = 'row-border stripe compact order-column hover',
+          options =  list(
+              lengthMenu = c(10, 20, 50, 100, 250),
+              autoWidth = TRUE,
+              columnDefs = list(
+                  list(className = 'dt-right', targets = c(10)),
+                  list(width = '100px', targets = c(0,2)),
+                  list(width = '200px', targets = c(3))
+              ),
+              rowCallback = JS(
+                  "function(row, data) {",
+                  "var num = '$' + data[5].toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');",
+                  "$('td:eq(5)', row).html(num);",
+                  "}")
+          )
+)
+
+```
+
+
+# Moody's Credit Rating Calibration
+
+Each credit program was assigned an estimated Moody's credit rating based on the program's default rate (net of recoveries) and the term to maturity of its loans. The ratings were calibrated based on the following data:  
+__Moody's Average Cumulative Issuer-Weighted Global Default Rates, 1970-2010__.
+```{r}
+
+ggplot(data = moody,
+       aes(moody_yr, net_def)) +
+    geom_line(aes(color=moody), size=1) +
+    scale_color_colorblind(guide = guide_legend(title = 'Credit Rating')) +
+    labs(x='Year',y='Cumulative Default Rate, %')
+
+```
+
+
+
+# Subsidy Rate Components
+
+## Default Rates Distribution
+
+This chart illustrates the linear relationship between the default rate and subsidy rate component due to defaults. The color of the circles represents different levels of Moody's credit ratings. 
+
+```{r plot_def_sr}
+
+# Def Rate ~ Def Subsidy
+p <- ggplot(data = cy,
+       aes(net_def, sr_def),
+       na.rm=TRUE) +
+#     scale_x_log10()+
+#     scale_y_log10()+
+    geom_point(aes(net_def, sr_def, color=moody), size=4)+
+    scale_color_wsj(guide = guide_legend(title = 'Credit Rating'))+
+    geom_smooth(method="lm")+
+    labs(x='% Default Rate, Net of Recoveries',
+         y='Subsidy Rate Defaults Component')
+
+suppressWarnings(print(p))
+
+```
+
+
+## Direct Loans Borrower Interest Rates
+
+Different credit programs expect to charge the borrowed interest rates as low as 0% and as high as `r cy$bor_int[cy$type=='DL'] %>% max(na.rm=T)`%. This chart illustrates that borrower interest rate is the primary driver of direct loans' subsidy rate component due to interest. As expected, the lower the rate charged to the borrower, the higher the subsidy cost.
+
+Notably, __Student Loans__ appear to have the highest levels of interest rates.
+
+
+```{r plot_int_sr}
+
+# Borrower Int ~ Int Subsidy
+p <- ggplot(
+    data = cy %>% 
+        filter(type=='DL'), 
+    aes(bor_int, sr_int)
+)+
+    geom_point(aes(color=purp), size=4)+
+    scale_color_wsj(guide = guide_legend(title = 'Category'))+
+    geom_smooth(method="lm")+
+    labs(x='% Borrower Interest Rate',
+         y='Subsidy Rate Interest Component')
+
+suppressWarnings(print(p))
+
+```
+
+
+
+# Dollar Flow Charts
+
+The flowing charts (also known as Sankey charts) demonstrate the many-to-many relationship between the following dimensions:
+
+* Direct Loans vs. Loan Guarantees
+* Lending Categories
+* Government Agencies
+* Calibrated Moody's Ratings
+
+
+## Loan Amounts
+
+* __Credit Subsidy Type:__ Most programs in FY2016 operate through __guarantees__ on loans issued by private lenders. The government's current involvement in issuing __direct loans__ is mostly limited to student loans by Dept. of Education.  
+* __Lending Category:__ The overwhelming majority of federal credit programs support  lending related to __Housing__ (issued by HUD, VA, and USDA), followed by __Student Loans__.
+* __Government Agency:__ Again, in terms of loan volume the federal credit dominated by __HUD__, followed by Dept. of Education, VA, and USDA.
+* __Credit Rating:__ The majority of loans have low projected default rates, corresponding to __Moody's Aaa__ credit rating. 
+
+
+```{r sankey_amt}
+
+df_sankey <- bind_rows(
+        cy %>% 
+        group_by(from=type, to=purp) %>% 
+        summarise("Loan Amount" = sum(amt,na.rm = T),
+                  "Default Subsidy" = sum(sr_def*amt/100,na.rm = T) %>% 
+                      round(0)) %>% 
+        ungroup() %>% 
+        mutate(from = ifelse(from=='DL','Direct Loans','Loan Guarantees')),
+    cy %>% 
+        group_by(from=purp, to=h1) %>% 
+        summarise("Loan Amount" = sum(amt,na.rm = T),
+                  "Default Subsidy" = sum(sr_def*amt/100,na.rm = T) %>% 
+                      round(0)),
+    cy %>% 
+        group_by(from=h1, to=moody) %>% 
+        summarise("Loan Amount" = sum(amt,na.rm = T),
+                  "Default Subsidy" = sum(sr_def*amt/100,na.rm = T) %>% 
+                      round(0))
+)
+
+
+
+
+sk_amt <- gvisSankey(data = df_sankey[,-4], 
+                     from = 'from', to = 'to', weight = "Loan Amount",
+                     options=list(width=900, height=700))
+
+
+plot(sk_amt)
+
+```
+
+
+## Subsidy Dollar Costs of Defaults
+
+We can also look at the dollar subsidy costs resulting from expected defaults. These amounts are calculated by multiplying loan amounts by the default subsidy rate component. The chart shows that even though majority of the loans have low default rates corresponding to Aaa rating, the largest portion of credit losses is expected to result from lower rated (A, Baa, and Ba) programs.
+```{r sankey_def}
+
+sk_def <- gvisSankey(data = df_sankey[,-3], 
+                     from = 'from', to = 'to', weight = "Default Subsidy",
+                     options=list(width=900, height=600))
+
+plot(sk_def)
+
+```
+
+
+
+# Comparison to Prior Fiscal Year
+
+## Loan Amounts by Lending Category
+
+According to FY2016 President's Budget, most lending categories are expected to have an increase. The __Housing__ loans show the biggest gains.
+```{r plot_purp_amt}
+ggplot(
+    data = budget_est %>% 
+        group_by(fy, purp) %>% 
+        summarise(amt=sum(amt)/1000000) %>% 
+        ungroup() %>% 
+        arrange(amt) %>% 
+        mutate(purp=factor(purp,levels = unique(purp))), 
+    aes(purp, amt, fill=factor(fy)))+
+    geom_bar(stat = 'identity',position = 'dodge') + 
+    scale_fill_economist(guide = guide_legend(title = NULL)) +
+    labs(x=NULL, y='Loan Amounts, $ Billion')+
+    coord_flip()
+
+```
+
+
+## Loan Amounts by Rate of Default
+
+The budget assumes that most of the loans issued or guaranteed in FY2015-2016 will have very low default rates, corresponding to Moody's investment grade credit ratings.
+```{r plot_moody_amt}
+ggplot(
+    data = budget_est %>% 
+        group_by(fy, moody, moody_num) %>% 
+        summarise(amt=sum(amt)/1000000), 
+    aes(moody, amt, fill=factor(fy)))+
+    geom_bar(stat = 'identity',position = 'dodge') +
+        scale_fill_economist(guide = guide_legend(title = NULL)) +
+    labs(x=NULL, y='Loan Amounts, $ Billion')
+
+```
+
+
+
+
+## Subsidy Cost by Lending Category
+
+The total budgeted subsidy cost for a program can be computed by multiplying the subsidy rate (which is the cost of subsidizing one dollar of a loan) times the total expected loan dollar amount.
+
+The budget expects most programs' FY2015-2016 cohorts to be operated under either zero or negative cost (making a profit) to the government. This is not surprising, considering historically low borrowing costs and projected default rates. However, the actual costs may increase is actual default rates increase.   
+```{r plot_purp_cost}
+
+ggplot(
+    data = budget_est %>% 
+        group_by(fy, purp) %>% 
+        summarise(Subsidy=sum(sr/100*amt/1000000,na.rm = T) %>% round(0)) %>% 
+        ungroup() %>% 
+        mutate(purp = gsub(' ','\n',purp)), 
+    aes(purp, Subsidy, fill=factor(fy)))+
+    theme_bw()+
+    geom_bar(stat = 'identity',position = 'dodge') +
+    scale_fill_economist(guide = guide_legend(title = NULL)) +
+    labs(x=NULL, y='Subsidy Cost, $ Billion')
+
+
+```
+
+## Subsidy Cost Components
+```{r tbl_purp_cost_comp, include=FALSE}
+
+tbl_subs_comp <- cy %>% 
+    group_by(purp,type) %>% 
+    summarise(Default = sum(sr_def/100*amt, na.rm = T),
+              Interest = sum(sr_int/100*amt, na.rm = T),
+              Fees = sum(sr_fee/100*amt, na.rm = T),
+              Other = sum(sr_oth/100*amt, na.rm = T)) %>% 
+    tidyr::gather(subsidy,amt,-purp, -type) %>% 
+    mutate(amt = amt/1000000) %>% 
+    mutate(purp = gsub(' ','\n',purp),
+           type = ifelse(type=='DL','Direct Loans','Loan Guarantees'))
+
+```
+
+Breaking up the subsidy cost into components reveals that the administrations expects the direct __student loans__ issued in FY2016 to have a substantial negative subsidy cost due to the difference between the Treasury's borrowing costs and the interest rates charged to students. The student loans programs do not report a substantive "Default" component. Rather, the negative cost is partially offset by "Other".
+
+On the loan guarantees' side, substantial negative subsidy cost is expected from charging fees __housing__ and __small business__ borrowers.
+
+Overall, the total subsidy cost of all FY2016 federal credit loans is projected to be $`r round(sum(tbl_subs_comp$amt),1)` billion dollars across the entire federal government (on the net present value basis). This low (negative) cost assumes the future defaults will not exceed the interest spread income on student loans and fee income on housing loan guarantees.  
+
+```{r plot_purp_cost_comp, fig.height=6.5, fig.width=10}
+
+ggplot(data=tbl_subs_comp,
+       aes(purp, amt))+
+    geom_bar(position = 'identity', stat='identity', aes(fill=subsidy)) +
+    facet_grid(.~type)+
+    scale_fill_wsj(guide = guide_legend(title = 'Subsidy Cost\n Components')) +
+    labs(x=NULL, y='Subsidy Cost, $ Billion') +
+    theme(strip.text.x = element_text(size = 16),
+          axis.text.y=element_text(size=10))
+
+```
+
+
+
+
+# Data Sources
+
+* [Office of Mamnagement and Budget, Federal Credit Supplement, Budget of the United States Government, Fiscal Year 2016](https://www.whitehouse.gov/sites/default/files/omb/budget/fy2016/assets/cr_supp.pdf)
+* [Moody's, Corporate Default and Recovery Rates, 1920-2010, Table 34](http://efinance.org.cn/cn/FEben/Corporate%20Default%20and%20Recovery%20Rates,1920-2010.pdf)
+
