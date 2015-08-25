@@ -28,6 +28,7 @@ library(googleVis)
 library(scales)
 library(ggthemes)
 library(ggplot2)
+library(data.table)
 library(dplyr)
 
 opts_chunk$set(echo = FALSE, results='asis', size="small", fig.align = 'center', fig.width = 9)
@@ -125,6 +126,40 @@ p <- ggplot(data = cy,
 suppressWarnings(print(p))
 
 ```
+
+## Default Rate Assumptions
+
+```{r plot_mat_df}
+
+moody_dt <- data.table(moody)
+
+fed <- budget_est %>% 
+    group_by(fy,purp) %>% 
+    summarise(net_def = weighted.mean(net_def,amt,na.rm = T) %>% round(2),
+              mat = weighted.mean(mat, amt,na.rm = T) %>% as.integer()) %>% 
+    ungroup() %>% 
+    mutate(moody_yr = pmin(mat, 20)) %>% 
+    data.table()
+
+setkey(fed, moody_yr, net_def)
+setkey(moody_dt, moody_yr, net_def)
+
+fed <- moody_dt[fed, roll='nearest']
+
+
+ggplot(data= fed %>% filter(fy==2016),
+       aes(mat, net_def)) +
+    geom_point(aes(color=moody), size=4)+
+    geom_text(aes(label=paste(purp,'\n',moody)), size=4)+
+    theme_bw()+
+    scale_color_wsj(guide = guide_legend(title = 'Credit Rating'))+
+    scale_x_continuous(limits=c(0,50))+
+    scale_y_continuous(limits=c(-4,15))+
+    labs(y='% Default Rate, Net of Recoveries',
+         x='Loan Term (in years')
+
+```
+
 
 
 ## Direct Loans Borrower Interest Rates
@@ -316,6 +351,20 @@ ggplot(data=tbl_subs_comp,
     labs(x=NULL, y='Subsidy Cost, $ Billion') +
     theme(strip.text.x = element_text(size = 16),
           axis.text.y=element_text(size=10))
+
+```
+
+The default rates assumptions remained unchanged for most programs, with the exception of a decrease in __Energy, Transportation, and Infrastructure__ lending category. Interestingly, most __Student Loans__ report negative default rates due to recoveries assumptions in excess of 100%. 
+
+```{r plot_purp_def}
+ggplot(
+    data=fed %>% 
+        mutate(purp=gsub(' ','\n',purp)), 
+    aes(purp, net_def))+
+    geom_bar(aes(fill=factor(fy)), stat='identity', position='dodge')+
+    theme_bw()+
+    scale_fill_economist(guide = guide_legend(title = NULL))+
+    labs(x=NULL, y='% Default Rate, Net of Recoveries')
 
 ```
 
