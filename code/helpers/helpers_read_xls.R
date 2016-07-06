@@ -190,14 +190,14 @@ get_heads <- function(raw, is_data){
                 h3 <- txt[i]
             }
             
-            if(txt[i]=='Direct Loans'){
+            if(grepl('Direct Loans', txt[i])){
                 txt[i] <- paste(h3, txt[i])
                 h3 <- NA
             }
             
-            heads$h1[i] <- h1
-            heads$h2[i] <- h2
-            heads$h3[i] <- h3
+            if (exists('h1')) heads$h1[i] <- h1
+            if (exists('h2')) heads$h2[i] <- h2
+            if (exists('h3')) heads$h3[i] <- h3
             heads$prog[i] <- txt[i]
         }
     }
