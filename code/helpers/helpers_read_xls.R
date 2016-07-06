@@ -132,7 +132,7 @@ paste_split_lines <- function(raw, line_1, line_2){
 get_raw_file <- function(fcs_fy, fcs_tbl, cache_dir){
     library(readxl)
     
-    xl_file <- paste0('BUDGET-', fcs_fy, '-FCS-', fcs_tbl, '.xlsx')
+    xl_file <- paste0('BUDGET-', fcs_fy, '-FCS-', fcs_tbl, ifelse(fcs_fy>=2016, '.xlsx', '.xls'))
     cache_path <- paste(cache_dir,xl_file,sep = '/')
     
     if(!file.exists(cache_path)){
