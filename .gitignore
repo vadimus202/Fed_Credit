@@ -4,6 +4,7 @@
 docs/
 *.RProj
 *.xlsx
+*.xls
 *.RData
 *.html
 moodys.txt
