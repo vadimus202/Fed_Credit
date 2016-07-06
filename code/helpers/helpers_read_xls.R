@@ -103,6 +103,12 @@ clean_clean_txt <- function(raw){
         raw,
         line_1 = 'Transportation, Infrastructure, Finance \\& Innovation \\(TIFIA\\)',
         line_2 = 'Direct Loans')
+    
+    ######## 2017 ##############
+    raw <- paste_split_lines(
+        raw,
+        line_1 = 'Section 108 Community Development Loan',
+        line_2 = 'Guarantee \\(Fee\\)')
 
     return(raw)    
 }
@@ -225,6 +231,8 @@ get_vals <- function(raw, is_data, col_heads){
             gsub(',', '', .)  %>% 
             # remove footnotes
             gsub('^[1-9] +', '', .)  %>% 
+            # remove footnotes like "1.00 (*)" 
+            gsub(' +\\(.+\\) *$', '', .)  %>% 
             # convert * to 0
             gsub('\\*', '0', .)  %>% 
             as.numeric()
