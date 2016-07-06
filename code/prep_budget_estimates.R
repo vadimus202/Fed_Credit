@@ -4,6 +4,10 @@ library(dplyr)
 source('code/helpers/helpers_read_xls.R')
 source('code/helpers/helpers_prep_data.R')
 
-get_budget_est(2016)
+# Define Fiscal Year
+FY <- 2017
 
-save(budget_est, no_main, no_assum,file = 'data/cache/budget_est.RData')
+get_budget_est(FY)
+
+save(budget_est, no_main, no_assum,
+     file = paste0('data/cache/budget_est_',FY,'.RData'))
